@@ -1,0 +1,12 @@
+<%#
+kind: snippet
+name: FreeBSD_Local_Repository
+%>
+mkdir -p /usr/local/etc/pkg/repos
+cat <<EOF2> /usr/local/etc/pkg/repos/local_repo.conf 
+local_repo: {
+  url: "pkg+http://local_repo/packages/",
+  mirror_type: srv,
+  enabled: yes
+}
+EOF2

@@ -1,0 +1,56 @@
+<%#
+kind: provision
+name: FreeBSD (mfsBSD) provision UFS
+oses:
+- FreeBSD
+%>
+<%
+proxy_string = @host.params['http-proxy'] ? "http://#{@host.params['http-proxy']}:#{@host.params['http-proxy-port']}" : ''
+%>
+# Do not define http_proxy if empty or freebsd-update will fail.
+<% if proxy_string != '' -%>
+export http_proxy='<%= proxy_string %>'
+<% end -%>
+
+# Get the disk layout, and the first disk connected to the system
+disk_layout=`/sbin/sysctl -n kern.disks | /usr/bin/sed 's/cd[0-9]//g'`
+first_disk="`echo ${disk_layout##*[1-9]} | /usr/bin/cut -d' ' -f1`"
+test -z "$first_disk" || echo "First disk: $first_disk"
+
+/root/bin/destroygeom -d <%= @host.params['install-disk'] || '$first_disk' %> || exit 1
+
+export DISTRIBUTIONS="kernel.txz base.txz"
+export BSDINSTALL_DISTDIR="/tmp"
+export BSDINSTALL_DISTSITE="ftp://ftp.freebsd.org/pub/FreeBSD/releases/amd64/<%= @host.operatingsystem.major %>.<%= @host.operatingsystem.minor %>-RELEASE"
+export ASSUME_ALWAYS_YES="yes"
+
+cat <<EOF> /tmp/installer
+PARTITIONS="<%= @host.params['install-disk'] || '$first_disk' %> {<%= @host.diskLayout %>}"
+DISTRIBUTIONS="${DISTRIBUTIONS}"
+BSDINSTALL_DISTDIR=${BSDINSTALL_DISTDIR}
+BSDINSTALL_DISTSITE=${BSDINSTALL_DISTSITE}
+ASSUME_ALWAYS_YES=${ASSUME_ALWAYS_YES}
+
+#!/bin/sh
+echo "Installation complete, running in host system"
+
+echo "Setup done" >> /tmp/log.txt
+echo "Setup done."
+
+EOF
+
+bsdinstall distfetch
+bsdinstall script /tmp/installer
+bsdinstall mount
+
+mount -t devfs devfs /mnt/dev
+
+cp /etc/resolv.conf /mnt/etc/resolv.conf
+
+fetch -q --no-verify-hostname --no-verify-peer -o /mnt/tmp/finish.sh -d <%= foreman_url('finish') %>
+chroot /mnt /bin/sh /tmp/finish.sh
+rm /mnt/tmp/finish.sh
+
+fetch -q --no-verify-hostname --no-verify-peer -o /dev/null -d <%= foreman_url %>
+sleep 5
+reboot
