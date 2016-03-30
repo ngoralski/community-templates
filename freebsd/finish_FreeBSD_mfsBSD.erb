@@ -34,7 +34,8 @@ adjkerntz -a
 ntpdate <%= @host.params['ntp-server'] || '0.freebsd.pool.ntp.org' %>
 env ASSUME_ALWAYS_YES=YES pkg bootstrap
 
-<%= snippet 'FreeBSD_Local_Repository' %>
+# Define in a repo file were to get the packages comment out this, if it's defined
+#<%= snippet 'FreeBSD_Local_Repository' %>
 
 mkdir /root/install/
 freebsd-update fetch > /root/install/freebsd-update_fetch.txt
